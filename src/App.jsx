@@ -3,7 +3,7 @@ import { NavLink, Route, Routes, Navigate } from 'react-router-dom'
 import { LogOut, Menu, X, Bus } from 'lucide-react'
 import Dashboard from './pages/Dashboard.jsx'
 import Lancamentos from './pages/Lancamentos.jsx'
-import Servicos from './pages/Servicos.jsx'
+import Passeios from './pages/Passeios.jsx'
 import Parceiros from './pages/Parceiros.jsx'
 import Login from './pages/Login.jsx'
 import { supabase, supabaseConfigured } from './lib/supabase.js'
@@ -11,7 +11,7 @@ import { supabase, supabaseConfigured } from './lib/supabase.js'
 const links = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/lancamentos', label: 'Lançar' },
-  { to: '/servicos', label: 'Serviços' },
+  { to: '/passeios', label: 'Passeios' },
   { to: '/parceiros', label: 'Parceiros' },
 ]
 
@@ -115,7 +115,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/lancamentos" element={<Lancamentos />} />
-          <Route path="/servicos" element={<Servicos />} />
+          <Route path="/passeios" element={<Passeios />} />
           <Route path="/parceiros" element={<Parceiros />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

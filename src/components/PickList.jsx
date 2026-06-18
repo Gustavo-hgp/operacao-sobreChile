@@ -1,19 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 
-// Normaliza para busca: minúsculas e sem acento (ex.: "São" casa com "sao").
+// Combobox genérico com busca. items: [{ id, nome }].
+// getSecondary(item) -> texto secundário opcional (ex.: tipo, parceiro).
 const norm = (s) =>
   (s || '').toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
 
-export default function ServicoSelect({ servicos, value, onChange, placeholder = 'Digite ou selecione…' }) {
+export default function PickList({
+  items,
+  value,
+  onChange,
+  placeholder = 'Digite ou selecione…',
+  getSecondary,
+  emptyText = 'Nada encontrado.',
+}) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
   const ref = useRef(null)
 
-  const selected = servicos.find((s) => String(s.id) === String(value)) || null
+  const selected = items.find((i) => String(i.id) === String(value)) || null
 
-  // Fecha ao clicar fora ou apertar Esc.
   useEffect(() => {
     if (!open) return
     function onClick(e) {
@@ -32,17 +39,16 @@ export default function ServicoSelect({ servicos, value, onChange, placeholder =
 
   const filtered = useMemo(() => {
     const q = norm(query)
-    if (!q) return servicos
-    return servicos.filter((s) => norm(s.nome).includes(q) || norm(s.parceiros?.nome).includes(q))
-  }, [servicos, query])
+    if (!q) return items
+    return items.filter((i) => norm(i.nome).includes(q) || norm(getSecondary?.(i)).includes(q))
+  }, [items, query, getSecondary])
 
-  // Sempre que a lista muda, volta o destaque para o primeiro.
   useEffect(() => {
     setHighlight(0)
   }, [query, open])
 
-  function choose(s) {
-    onChange(String(s.id))
+  function choose(i) {
+    onChange(String(i.id))
     setQuery('')
     setOpen(false)
   }
@@ -63,7 +69,6 @@ export default function ServicoSelect({ servicos, value, onChange, placeholder =
     }
   }
 
-  // Aberto: mostra o que está sendo digitado. Fechado: o nome do selecionado.
   const display = open ? query : selected?.nome ?? ''
 
   return (
@@ -97,25 +102,24 @@ export default function ServicoSelect({ servicos, value, onChange, placeholder =
       {open && (
         <ul className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl py-1 text-sm">
           {filtered.length === 0 ? (
-            <li className="px-3 py-2 text-slate-400">Nenhum serviço encontrado.</li>
+            <li className="px-3 py-2 text-slate-400">{emptyText}</li>
           ) : (
-            filtered.map((s, i) => {
-              const isSel = String(s.id) === String(value)
+            filtered.map((i, idx) => {
+              const isSel = String(i.id) === String(value)
+              const secondary = getSecondary?.(i)
               return (
-                <li key={s.id}>
+                <li key={i.id}>
                   <button
                     type="button"
-                    onMouseEnter={() => setHighlight(i)}
-                    onClick={() => choose(s)}
+                    onMouseEnter={() => setHighlight(idx)}
+                    onClick={() => choose(i)}
                     className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition ${
-                      i === highlight ? 'bg-[#e8effb] text-brand-dark' : 'text-slate-700'
+                      idx === highlight ? 'bg-[#e8effb] text-brand-dark' : 'text-slate-700'
                     }`}
                   >
                     <span className="truncate">
-                      {s.nome}
-                      {s.parceiros?.nome && (
-                        <span className="text-slate-400"> · {s.parceiros.nome}</span>
-                      )}
+                      {i.nome}
+                      {secondary && <span className="text-slate-400"> · {secondary}</span>}
                     </span>
                     {isSel && <Check className="h-4 w-4 text-brand shrink-0" />}
                   </button>

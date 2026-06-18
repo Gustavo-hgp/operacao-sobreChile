@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { money } from '../lib/format.js'
-import { calcOperacao, passageirosMinimos } from '../lib/calc.js'
+import { calcOperacao } from '../lib/calc.js'
 import DateFilter from '../components/DateFilter.jsx'
 import {
   Bar as RBar,
@@ -23,9 +23,9 @@ const RED = '#e11d2a'
 const GREEN = '#16a34a'
 
 const chartConfig = {
-  operar: { label: 'Operando (real)', color: NAVY },
-  terceirizar: { label: 'Terceirizando', color: RED },
-  resultado: { label: 'Resultado', color: NAVY },
+  referencia: { label: 'Custo de referência', color: RED },
+  parceiro: { label: 'Custo do parceiro', color: NAVY },
+  economia: { label: 'Economia', color: NAVY },
 }
 
 const toISO = (d) => (d ? d.toLocaleDateString('en-CA') : null)
@@ -46,15 +46,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // Ponto de equilíbrio — usa o histórico todo (carrega uma vez).
-  const [breakEven, setBreakEven] = useState([])
-
   const from = mode === 'dia' ? single : range?.from
   const to = mode === 'dia' ? single : (range?.to ?? range?.from)
   const fromStr = toISO(from)
   const toStr = toISO(to)
 
-  const select = 'data, custo_van_guia, qtd_pessoas, comissao_roupa, servicos(nome, valor_cupo)'
+  const select =
+    'data, qtd_pessoas, comissao_roupa, passeios(nome, valor_cupo_pessoa), parceiros(nome, valor_servico)'
 
   async function load() {
     if (!supabase || !fromStr || !toStr) return setLoading(false)
@@ -78,59 +76,26 @@ export default function Dashboard() {
     load()
   }, [fromStr, toStr])
 
-  // Ponto de equilíbrio por serviço (custo médio da van ÷ valor do cupo).
-  useEffect(() => {
-    if (!supabase) return
-    ;(async () => {
-      const { data, error } = await supabase
-        .from('operacoes')
-        .select('custo_van_guia, servicos(nome, valor_cupo, parceiros(nome))')
-      if (error || !data) return
-      const acc = {}
-      for (const o of data) {
-        const nome = o.servicos?.nome || '—'
-        const a = (acc[nome] ||= {
-          nome,
-          parceiro: o.servicos?.parceiros?.nome || '—',
-          valorCupo: Number(o.servicos?.valor_cupo) || 0,
-          soma: 0,
-          n: 0,
-        })
-        a.soma += Number(o.custo_van_guia) || 0
-        a.n += 1
-      }
-      const list = Object.values(acc).map((a) => {
-        const custoMedioVan = a.n > 0 ? a.soma / a.n : 0
-        return { ...a, custoMedioVan, minimo: passageirosMinimos(custoMedioVan, a.valorCupo) }
-      })
-      list.sort((a, b) => a.nome.localeCompare(b.nome))
-      setBreakEven(list)
-    })()
-  }, [])
-
-  // KPIs do período selecionado.
   const kpis = useMemo(() => {
-    let economia = 0, comissao = 0, resultado = 0, pessoas = 0, custoVan = 0
+    let economia = 0, comissao = 0, pessoas = 0
     for (const r of rows) {
       const c = calcOperacao(r)
-      economia += c.saldoEconomia
-      comissao += c.comissao
-      resultado += c.resultadoDia
-      pessoas += c.qtd
-      custoVan += c.custoVan
+      economia += c.economiaTotal
+      comissao += Number(r.comissao_roupa) || 0
+      pessoas += c.pessoas
     }
-    return { economia, comissao, resultado, pessoas, custoMedio: pessoas > 0 ? custoVan / pessoas : 0 }
+    return { economia, comissao, resultado: economia + comissao, pessoas }
   }, [rows])
 
-  // Série por dia: operando (real) vs terceirizando + resultado.
+  // Série por dia: custo de referência vs custo do parceiro + economia.
   const porDia = useMemo(() => {
     const byDate = {}
     for (const r of rows) {
       const c = calcOperacao(r)
-      const a = (byDate[r.data] ||= { data: r.data, operar: 0, terceirizar: 0, resultado: 0 })
-      a.operar += c.custoVan
-      a.terceirizar += c.custoTerceirizado
-      a.resultado += c.resultadoDia
+      const a = (byDate[r.data] ||= { data: r.data, referencia: 0, parceiro: 0, economia: 0 })
+      a.referencia += c.ref * c.pessoas
+      a.parceiro += c.servico
+      a.economia += c.economiaTotal
     }
     return Object.values(byDate)
       .sort((a, b) => a.data.localeCompare(b.data))
@@ -168,24 +133,53 @@ export default function Dashboard() {
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Kpi
-          label="Resultado do período"
-          value={money(kpis.resultado)}
-          tone={kpis.resultado >= 0 ? 'text-green-600' : 'text-accent'}
-          sub="Economia + comissão"
-        />
-        <Kpi
-          label="Economia real"
+          label="Economia total"
           value={money(kpis.economia)}
-          tone={kpis.economia >= 0 ? 'text-brand-dark' : 'text-accent'}
-          sub="Operar vs terceirizar"
+          tone={kpis.economia >= 0 ? 'text-green-600' : 'text-accent'}
+          sub="vs. cupo de referência"
         />
         <Kpi label="Comissão de roupas" value={money(kpis.comissao)} />
-        <Kpi label="Custo médio /pessoa" value={money(kpis.custoMedio)} sub={`${kpis.pessoas} pessoas`} />
+        <Kpi
+          label="Resultado do período"
+          value={money(kpis.resultado)}
+          tone={kpis.resultado >= 0 ? 'text-brand-dark' : 'text-accent'}
+          sub="Economia + comissão"
+        />
+        <Kpi label="Pessoas" value={kpis.pessoas} />
       </div>
 
       <Card
-        title="Operar vs Terceirizar"
-        subtitle="Custo real de rodar a van comparado ao que custaria jogar pro parceiro · por dia"
+        title="Economia por dia"
+        subtitle="Quanto você economizou vs. o cupo de referência · verde = economia, vermelho = prejuízo"
+      >
+        {!temDados ? (
+          <Empty loading={loading} />
+        ) : (
+          <ChartContainer config={chartConfig} className="aspect-auto h-72 w-full">
+            <ComposedChart data={porDia} margin={{ top: 8, left: 12, right: 12 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                interval="preserveStartEnd"
+                minTickGap={24}
+              />
+              <RChartTooltip cursor={false} content={<ChartTooltipContent valueFormatter={money} />} />
+              <RBar dataKey="economia" radius={4}>
+                {porDia.map((d) => (
+                  <Cell key={d.data} fill={d.economia >= 0 ? GREEN : RED} />
+                ))}
+              </RBar>
+            </ComposedChart>
+          </ChartContainer>
+        )}
+      </Card>
+
+      <Card
+        title="Referência vs Parceiro"
+        subtitle="Custo se fosse pelo cupo de referência comparado ao que o parceiro cobrou · por dia"
       >
         {!temDados ? (
           <Empty loading={loading} />
@@ -203,75 +197,10 @@ export default function Dashboard() {
               />
               <RChartTooltip cursor={false} content={<ChartTooltipContent valueFormatter={money} />} />
               <Legend content={<ChartLegendContent />} />
-              <RBar dataKey="operar" fill="var(--color-operar)" radius={4} />
-              <RBar dataKey="terceirizar" fill="var(--color-terceirizar)" radius={4} />
+              <RBar dataKey="referencia" fill="var(--color-referencia)" radius={4} />
+              <RBar dataKey="parceiro" fill="var(--color-parceiro)" radius={4} />
             </ComposedChart>
           </ChartContainer>
-        )}
-      </Card>
-
-      <Card title="Resultado por dia" subtitle="Verde = lucro/economia · vermelho = prejuízo">
-        {!temDados ? (
-          <Empty loading={loading} />
-        ) : (
-          <ChartContainer config={chartConfig} className="aspect-auto h-72 w-full">
-            <ComposedChart data={porDia} margin={{ top: 8, left: 12, right: 12 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                interval="preserveStartEnd"
-                minTickGap={24}
-              />
-              <RChartTooltip cursor={false} content={<ChartTooltipContent valueFormatter={money} />} />
-              <RBar dataKey="resultado" radius={4}>
-                {porDia.map((d) => (
-                  <Cell key={d.data} fill={d.resultado >= 0 ? GREEN : RED} />
-                ))}
-              </RBar>
-            </ComposedChart>
-          </ChartContainer>
-        )}
-      </Card>
-
-      <Card
-        title="Ponto de equilíbrio por serviço"
-        subtitle="Passageiros mínimos para valer a pena rodar a van em vez de terceirizar (histórico completo)"
-      >
-        {breakEven.length === 0 ? (
-          <Empty loading={loading} text="Cadastre serviços e lance operações para ver o ponto de equilíbrio." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[560px]">
-              <thead className="text-slate-500 text-left">
-                <tr>
-                  <th className="py-2 pr-4">Serviço</th>
-                  <th className="py-2 pr-4">Parceiro</th>
-                  <th className="py-2 pr-4 text-right">Valor cupo</th>
-                  <th className="py-2 pr-4 text-right">Custo médio van</th>
-                  <th className="py-2 text-right">Passageiros mín.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {breakEven.map((b) => (
-                  <tr key={b.nome} className="border-t border-slate-100">
-                    <td className="py-2 pr-4 font-medium">{b.nome}</td>
-                    <td className="py-2 pr-4 text-slate-600">{b.parceiro}</td>
-                    <td className="py-2 pr-4 text-right">{money(b.valorCupo)}</td>
-                    <td className="py-2 pr-4 text-right">{money(b.custoMedioVan)}</td>
-                    <td className="py-2 text-right font-bold text-brand-dark">
-                      {b.minimo == null ? '—' : `${b.minimo} pax`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-3 text-xs text-slate-400">
-              Acima do mínimo, compensa rodar a van própria. Abaixo, sai mais barato repassar pro parceiro.
-            </p>
-          </div>
         )}
       </Card>
     </div>
