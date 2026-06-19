@@ -167,7 +167,7 @@ export default function Dashboard() {
                 interval="preserveStartEnd"
                 minTickGap={24}
               />
-              <RChartTooltip cursor={false} content={<ChartTooltipContent valueFormatter={money} />} />
+              <RChartTooltip cursor={false} content={<ChartTooltipContent valueFormatter={formatMoney} />} />
               <RBar dataKey="economia" radius={4}>
                 {porDia.map((d) => (
                   <Cell key={d.data} fill={d.economia >= 0 ? GREEN : RED} />
@@ -196,7 +196,7 @@ export default function Dashboard() {
                 interval="preserveStartEnd"
                 minTickGap={24}
               />
-              <RChartTooltip cursor={false} content={<ChartTooltipContent valueFormatter={money} />} />
+              <RChartTooltip cursor={false} content={<ChartTooltipContent valueFormatter={formatMoney} />} />
               <Legend content={<ChartLegendContent />} />
               <RBar dataKey="referencia" fill="var(--color-referencia)" radius={4} />
               <RBar dataKey="parceiro" fill="var(--color-parceiro)" radius={4} />
