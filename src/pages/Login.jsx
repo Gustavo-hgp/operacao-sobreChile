@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Bus } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 
 export default function Login() {
@@ -26,13 +25,8 @@ export default function Login() {
           onSubmit={handleSubmit}
           className="w-full max-w-sm bg-white rounded-xl border border-slate-200 p-6 space-y-4"
         >
-          <div className="flex flex-col items-center gap-2 select-none">
-            <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand text-white">
-              <Bus className="h-7 w-7" />
-            </span>
-            <span className="text-lg font-bold text-brand-dark">
-              Operação <span className="text-accent">Chile</span>
-            </span>
+          <div className="flex justify-center select-none">
+            <img src="/logo.png" alt="Sobre o Chile" className="h-28 w-auto" />
           </div>
           <p className="text-center text-sm text-slate-500">Entre para continuar</p>
 

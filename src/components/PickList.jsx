@@ -3,6 +3,10 @@ import { Check, ChevronDown } from 'lucide-react'
 
 // Combobox genérico com busca. items: [{ id, nome }].
 // getSecondary(item) -> texto secundário opcional (ex.: tipo, parceiro).
+// minChars -> nº mínimo de letras pra buscar (só vale se a lista for grande,
+//   acima de SEARCH_THRESHOLD itens) — evita combobox gigante.
+const SEARCH_THRESHOLD = 8
+
 const norm = (s) =>
   (s || '').toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
 
@@ -13,6 +17,7 @@ export default function PickList({
   placeholder = 'Digite ou selecione…',
   getSecondary,
   emptyText = 'Nada encontrado.',
+  minChars = 0,
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -20,6 +25,11 @@ export default function PickList({
   const ref = useRef(null)
 
   const selected = items.find((i) => String(i.id) === String(value)) || null
+
+  // Só exige um mínimo de letras quando a lista é grande.
+  const exigeBusca = minChars > 0 && items.length > SEARCH_THRESHOLD
+  const q = norm(query)
+  const faltamLetras = exigeBusca && q.length < minChars
 
   useEffect(() => {
     if (!open) return
@@ -38,10 +48,18 @@ export default function PickList({
   }, [open])
 
   const filtered = useMemo(() => {
-    const q = norm(query)
+    if (faltamLetras) return []
     if (!q) return items
-    return items.filter((i) => norm(i.nome).includes(q) || norm(getSecondary?.(i)).includes(q))
-  }, [items, query, getSecondary])
+    const matches = items.filter(
+      (i) => norm(i.nome).includes(q) || norm(getSecondary?.(i)).includes(q),
+    )
+    // "Mais próximo": quem começa com o texto digitado vem primeiro.
+    return matches.sort((a, b) => {
+      const aStart = norm(a.nome).startsWith(q) ? 0 : 1
+      const bStart = norm(b.nome).startsWith(q) ? 0 : 1
+      return aStart - bStart
+    })
+  }, [items, q, getSecondary, faltamLetras])
 
   useEffect(() => {
     setHighlight(0)
@@ -70,6 +88,7 @@ export default function PickList({
   }
 
   const display = open ? query : selected?.nome ?? ''
+  const ph = exigeBusca ? `Digite ${minChars}+ letras do nome…` : placeholder
 
   return (
     <div className="relative" ref={ref}>
@@ -78,7 +97,7 @@ export default function PickList({
           type="text"
           className="input pr-9"
           value={display}
-          placeholder={placeholder}
+          placeholder={ph}
           onFocus={() => {
             setOpen(true)
             setQuery('')
@@ -101,7 +120,11 @@ export default function PickList({
 
       {open && (
         <ul className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl py-1 text-sm">
-          {filtered.length === 0 ? (
+          {faltamLetras ? (
+            <li className="px-3 py-2 text-slate-400">
+              Digite ao menos {minChars} letras para buscar.
+            </li>
+          ) : filtered.length === 0 ? (
             <li className="px-3 py-2 text-slate-400">{emptyText}</li>
           ) : (
             filtered.map((i, idx) => {
@@ -114,7 +137,7 @@ export default function PickList({
                     onMouseEnter={() => setHighlight(idx)}
                     onClick={() => choose(i)}
                     className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition ${
-                      idx === highlight ? 'bg-[#e8effb] text-brand-dark' : 'text-slate-700'
+                      idx === highlight ? 'bg-brand-pale text-brand-dark' : 'text-slate-700'
                     }`}
                   >
                     <span className="truncate">

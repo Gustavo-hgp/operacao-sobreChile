@@ -4,11 +4,11 @@ import 'react-day-picker/style.css'
 
 // Cores da marca aplicadas via CSS vars do react-day-picker.
 const brandStyle = {
-  '--rdp-accent-color': '#0a3fa8',
-  '--rdp-accent-background-color': '#e8effb',
-  '--rdp-today-color': '#e11d2a',
-  '--rdp-range_middle-background-color': '#e8effb',
-  '--rdp-range_middle-color': '#072e7d',
+  '--rdp-accent-color': '#176DB0',
+  '--rdp-accent-background-color': '#e7eefb',
+  '--rdp-today-color': '#F80000',
+  '--rdp-range_middle-background-color': '#e7eefb',
+  '--rdp-range_middle-color': '#293797',
 }
 
 export default function Calendar(props) {

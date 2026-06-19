@@ -3,15 +3,21 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Nunito', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Fredoka', 'Nunito', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
       colors: {
+        // Manual de marca "Sobre o Chile"
         brand: {
-          DEFAULT: '#0a3fa8',
-          dark: '#072e7d',
-          light: '#e8effb',
+          DEFAULT: '#176DB0', // azul médio (primário)
+          dark: '#293797', // azul escuro
+          light: '#5B86C4', // azul claro
+          pale: '#e7eefb', // tom bem claro p/ fundos/hover
         },
         accent: {
-          DEFAULT: '#e11d2a',
-          dark: '#b3151f',
+          DEFAULT: '#F80000', // vermelho vivo
+          dark: '#B30000', // vermelho escuro
         },
         popover: {
           DEFAULT: 'var(--chart-tooltip-background)',

@@ -8,17 +8,22 @@
   --chart-foreground-muted: #64748b;
   --chart-label: #64748b;
   --chart-muted: #f1f5f9;
-  --chart-line-primary: #0a3fa8;
-  --chart-line-secondary: #e11d2a;
-  --chart-crosshair: #0a3fa8;
+  --chart-line-primary: #176DB0;
+  --chart-line-secondary: #F80000;
+  --chart-crosshair: #176DB0;
   --chart-grid: #e2e8f0;
   --chart-tooltip-background: rgba(15, 23, 42, 0.92);
   --chart-tooltip-foreground: #ffffff;
   --chart-tooltip-muted: #cbd5e1;
 }
 
-body {
-  @apply bg-slate-100 text-slate-800;
+@layer base {
+  body {
+    @apply bg-slate-100 text-slate-800 font-sans;
+  }
+  h1 {
+    @apply font-display;
+  }
 }
 
 @layer components {

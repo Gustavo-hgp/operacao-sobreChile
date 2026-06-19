@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { money, todayISO, fmtData } from '../lib/format.js'
+import { todayISO, fmtData } from '../lib/format.js'
+import { useCurrency } from '../lib/currency.jsx'
 import {
   calcEconomia,
   calcOperacao,
-  comissaoValor,
   pontoEquilibrio,
   tipoServicoLabel,
   tiposDoParceiro,
@@ -24,6 +24,7 @@ const emptyForm = {
 }
 
 export default function Lancamentos() {
+  const { formatMoney } = useCurrency()
   const [passeios, setPasseios] = useState([])
   const [parceiros, setParceiros] = useState([])
   const [operacoes, setOperacoes] = useState([])
@@ -209,6 +210,7 @@ export default function Lancamentos() {
             value={form.passeio_id}
             onChange={(id) => setForm((f) => ({ ...f, passeio_id: id }))}
             emptyText="Nenhum passeio cadastrado."
+            minChars={3}
           />
         </div>
         <div className="block sm:col-span-3">
@@ -218,6 +220,7 @@ export default function Lancamentos() {
             value={form.parceiro_id}
             onChange={(id) => setForm((f) => ({ ...f, parceiro_id: id, tipo_servico: '' }))}
             emptyText="Nenhum parceiro cadastrado."
+            minChars={3}
           />
         </div>
 
@@ -231,7 +234,7 @@ export default function Lancamentos() {
             <option value="">{parceiroSel ? 'Escolha…' : 'Escolha o parceiro antes'}</option>
             {tipos.map((t) => (
               <option key={t.tipo} value={t.tipo}>
-                {tipoServicoLabel(t.tipo)} — {money(t.valor)}
+                {tipoServicoLabel(t.tipo)} — {formatMoney(t.valor)}
               </option>
             ))}
           </select>
@@ -280,19 +283,19 @@ export default function Lancamentos() {
 
         {passeioSel && parceiroSel && tipoSel && (
           <div className="sm:col-span-6 grid grid-cols-2 sm:grid-cols-5 gap-2 rounded-lg bg-slate-50 p-3 text-sm">
-            <Preview label="Cupo do parceiro /pessoa" value={money(calc.cupoParceiroPorPessoa)} />
+            <Preview label="Cupo do parceiro /pessoa" value={formatMoney(calc.cupoParceiroPorPessoa)} />
             <Preview
               label="Economizado /pessoa"
-              value={money(calc.economizadoPorPessoa)}
+              value={formatMoney(calc.economizadoPorPessoa)}
               tone={calc.economizadoPorPessoa >= 0 ? 'text-green-600' : 'text-accent'}
             />
             <Preview
               label="Economia total"
-              value={money(calc.economiaTotal)}
+              value={formatMoney(calc.economiaTotal)}
               tone={calc.economiaTotal >= 0 ? 'text-green-600' : 'text-accent'}
               strong
             />
-            <Preview label="Comissão de roupa" value={money(comissao)} />
+            <Preview label="Comissão de roupa" value={formatMoney(comissao)} />
             <Preview label="Ponto de equilíbrio" value={pe == null ? '—' : `${pe} pessoas`} />
           </div>
         )}
@@ -386,7 +389,7 @@ export default function Lancamentos() {
                       <td className="px-4 py-2 text-slate-600">{tipoServicoLabel(o.tipo_servico)}</td>
                       <td className="px-4 py-2 text-right">{o.qtd_pessoas}</td>
                       <td className={`px-4 py-2 text-right font-medium ${c.economiaTotal >= 0 ? 'text-green-600' : 'text-accent'}`}>
-                        {money(c.economiaTotal)}
+                        {formatMoney(c.economiaTotal)}
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
                         <button className="link" onClick={() => editRow(o)}>Editar</button>

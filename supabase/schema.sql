@@ -64,3 +64,16 @@ create policy "authenticated full access parceiros" on parceiros
 drop policy if exists "authenticated full access operacoes" on operacoes;
 create policy "authenticated full access operacoes" on operacoes
   for all to authenticated using (true) with check (true);
+
+-- 4) Config: taxas de câmbio (chave/valor). A moeda base de ARMAZENAMENTO é o
+--    peso chileno (CLP); as taxas dizem quanto de CLP vale 1 USD e 1 BRL, e
+--    afetam só a EXIBIÇÃO. Esta tabela é aditiva (não apaga nada ao recriar).
+create table if not exists config (
+  chave text primary key,
+  valor numeric not null default 0
+);
+
+alter table config enable row level security;
+drop policy if exists "authenticated full access config" on config;
+create policy "authenticated full access config" on config
+  for all to authenticated using (true) with check (true);

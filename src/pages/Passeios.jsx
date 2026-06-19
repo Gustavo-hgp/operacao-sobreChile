@@ -1,29 +1,50 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { money } from '../lib/format.js'
+import { useCurrency } from '../lib/currency.jsx'
 
+const PAGE_SIZE = 10
 const emptyForm = { nome: '', valor_cupo_pessoa: '' }
 
 export default function Passeios() {
+  const { formatMoney } = useCurrency()
   const [passeios, setPasseios] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(0)
+  const [tick, setTick] = useState(0)
   const [form, setForm] = useState(emptyForm)
   const [editId, setEditId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const nomeRef = useRef(null)
 
-  async function load() {
-    if (!supabase) return setLoading(false)
-    setLoading(true)
-    const { data, error } = await supabase.from('passeios').select('*').order('nome')
-    if (error) setError(error.message)
-    else setPasseios(data)
-    setLoading(false)
-  }
-
   useEffect(() => {
-    load()
-  }, [])
+    if (!supabase) return setLoading(false)
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      const { data, error, count } = await supabase
+        .from('passeios')
+        .select('*', { count: 'exact' })
+        .order('nome')
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
+      if (cancelled) return
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+        return
+      }
+      if (data.length === 0 && page > 0) return setPage((p) => p - 1)
+      setPasseios(data)
+      setTotal(count ?? 0)
+      setLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [page, tick])
+
+  const refresh = () => setTick((t) => t + 1)
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   function startEdit(p) {
     setEditId(p.id)
@@ -52,14 +73,14 @@ export default function Passeios() {
     const { error } = await query
     if (error) return setError(error.message)
     cancelEdit()
-    load()
+    refresh()
   }
 
   async function remove(id) {
     if (!confirm('Excluir este passeio? As operações lançadas com ele também serão removidas.')) return
     const { error } = await supabase.from('passeios').delete().eq('id', id)
     if (error) return setError(error.message)
-    load()
+    refresh()
   }
 
   return (
@@ -126,10 +147,10 @@ export default function Passeios() {
             {!loading && passeios.length === 0 && (
               <tr><td colSpan={3} className="px-4 py-6 text-center text-slate-400">Nenhum passeio cadastrado.</td></tr>
             )}
-            {passeios.map((p) => (
+            {!loading && passeios.map((p) => (
               <tr key={p.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 font-medium">{p.nome}</td>
-                <td className="px-4 py-2 text-right">{money(p.valor_cupo_pessoa)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(p.valor_cupo_pessoa)}</td>
                 <td className="px-4 py-2 text-right whitespace-nowrap">
                   <button className="link" onClick={() => startEdit(p)}>Editar</button>
                   <button className="link text-accent ml-3" onClick={() => remove(p.id)}>Excluir</button>
@@ -138,6 +159,37 @@ export default function Passeios() {
             ))}
           </tbody>
         </table>
+
+        {!loading && total > 0 && (
+          <Pager page={page} totalPages={totalPages} total={total} setPage={setPage} noun="passeio" />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Pager({ page, totalPages, total, setPage, noun }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 text-sm text-slate-500">
+      <span>{total} {noun}{total === 1 ? '' : 's'}</span>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="btn-ghost px-3 py-1 disabled:opacity-40"
+          disabled={page === 0}
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+        >
+          Anterior
+        </button>
+        <span>Página {page + 1} de {totalPages}</span>
+        <button
+          type="button"
+          className="btn-ghost px-3 py-1 disabled:opacity-40"
+          disabled={page + 1 >= totalPages}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Próxima
+        </button>
       </div>
     </div>
   )

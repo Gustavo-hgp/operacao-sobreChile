@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { money } from '../lib/format.js'
+import { useCurrency } from '../lib/currency.jsx'
 import { calcOperacao, comissaoValor } from '../lib/calc.js'
 import DateFilter from '../components/DateFilter.jsx'
 import {
@@ -18,8 +18,8 @@ import {
   ChartLegendContent,
 } from '../components/ui/chart.jsx'
 
-const NAVY = '#0a3fa8'
-const RED = '#e11d2a'
+const NAVY = '#176DB0'
+const RED = '#F80000'
 const GREEN = '#16a34a'
 
 const chartConfig = {
@@ -38,6 +38,7 @@ const fmtBR = (d) => d.toLocaleDateString('pt-BR')
 const dayMonth = (iso) => iso.slice(8) + '/' + iso.slice(5, 7)
 
 export default function Dashboard() {
+  const { formatMoney } = useCurrency()
   const [mode, setMode] = useState('periodo') // 'dia' | 'periodo'
   const [single, setSingle] = useState(new Date())
   const [range, setRange] = useState({ from: addDays(new Date(), -29), to: new Date() })
@@ -134,14 +135,14 @@ export default function Dashboard() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Kpi
           label="Economia total"
-          value={money(kpis.economia)}
+          value={formatMoney(kpis.economia)}
           tone={kpis.economia >= 0 ? 'text-green-600' : 'text-accent'}
           sub="vs. cupo de referência"
         />
-        <Kpi label="Comissão de roupas" value={money(kpis.comissao)} />
+        <Kpi label="Comissão de roupas" value={formatMoney(kpis.comissao)} />
         <Kpi
           label="Resultado do período"
-          value={money(kpis.resultado)}
+          value={formatMoney(kpis.resultado)}
           tone={kpis.resultado >= 0 ? 'text-brand-dark' : 'text-accent'}
           sub="Economia + comissão"
         />
