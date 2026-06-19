@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { money } from '../lib/format.js'
-import { calcOperacao } from '../lib/calc.js'
+import { calcOperacao, comissaoValor } from '../lib/calc.js'
 import DateFilter from '../components/DateFilter.jsx'
 import {
   Bar as RBar,
@@ -52,7 +52,7 @@ export default function Dashboard() {
   const toStr = toISO(to)
 
   const select =
-    'data, qtd_pessoas, comissao_roupa, passeios(nome, valor_cupo_pessoa), parceiros(nome, valor_servico)'
+    'data, qtd_pessoas, valor_servico, valor_roupa, comissao_pct, passeios(valor_cupo_pessoa)'
 
   async function load() {
     if (!supabase || !fromStr || !toStr) return setLoading(false)
@@ -81,7 +81,7 @@ export default function Dashboard() {
     for (const r of rows) {
       const c = calcOperacao(r)
       economia += c.economiaTotal
-      comissao += Number(r.comissao_roupa) || 0
+      comissao += comissaoValor(r)
       pessoas += c.pessoas
     }
     return { economia, comissao, resultado: economia + comissao, pessoas }

@@ -1,8 +1,8 @@
 -- Operação Chile — schema do Supabase
 -- Rode isto no SQL Editor do seu projeto Supabase.
 --
--- Se você já rodou uma versão anterior do schema, rode antes (apaga tudo):
---   drop table if exists operacoes, servicos, parceiros, passeios cascade;
+-- Se você já rodou uma versão anterior do schema, rode antes o supabase/reset.sql
+-- (apaga as tabelas), e depois este arquivo.
 
 -- 1) Passeio (referência): nome + valor do cupo por pessoa (preço de referência).
 create table if not exists passeios (
@@ -12,27 +12,32 @@ create table if not exists passeios (
   created_at        timestamptz not null default now()
 );
 
--- 2) Parceiro: presta o serviço (van, guia ou van+guia) por um valor, com uma
---    capacidade máxima de pessoas.
+-- 2) Parceiro: pode prestar van, guia e/ou van+guia, cada um com seu preço
+--    (deixe nulo o que ele não faz). qtd_maxima = capacidade máxima de pessoas.
 create table if not exists parceiros (
-  id            bigint generated always as identity primary key,
-  nome          text not null,
-  tipo_servico  text not null default 'van_guia' check (tipo_servico in ('van','guia','van_guia')),
-  qtd_maxima    integer not null default 0 check (qtd_maxima >= 0),
-  valor_servico numeric(10,2) not null default 0,
-  created_at    timestamptz not null default now()
+  id             bigint generated always as identity primary key,
+  nome           text not null,
+  qtd_maxima     integer not null default 0 check (qtd_maxima >= 0),
+  valor_van      numeric(10,2),
+  valor_guia     numeric(10,2),
+  valor_van_guia numeric(10,2),
+  created_at     timestamptz not null default now()
 );
 
--- 3) Operação: um passeio executado com um parceiro, para N pessoas.
---    O cupo do parceiro por pessoa = valor_servico ÷ qtd_pessoas (calculado no app).
+-- 3) Operação: um passeio executado com um parceiro num tipo de serviço.
+--    valor_servico = preço do parceiro para o tipo escolhido (gravado no momento).
+--    Comissão de roupa = valor_roupa * comissao_pct / 100.
 create table if not exists operacoes (
-  id             bigint generated always as identity primary key,
-  data           date not null,
-  passeio_id     bigint not null references passeios(id) on delete cascade,
-  parceiro_id    bigint not null references parceiros(id) on delete cascade,
-  qtd_pessoas    integer not null default 0 check (qtd_pessoas >= 0),
-  comissao_roupa numeric(10,2) not null default 0,
-  created_at     timestamptz not null default now()
+  id            bigint generated always as identity primary key,
+  data          date not null,
+  passeio_id    bigint not null references passeios(id) on delete cascade,
+  parceiro_id   bigint not null references parceiros(id) on delete cascade,
+  tipo_servico  text not null check (tipo_servico in ('van','guia','van_guia')),
+  valor_servico numeric(10,2) not null default 0,
+  qtd_pessoas   integer not null default 0 check (qtd_pessoas >= 0),
+  valor_roupa   numeric(10,2) not null default 0,
+  comissao_pct  numeric(5,2) not null default 0,
+  created_at    timestamptz not null default now()
 );
 
 create index if not exists idx_operacoes_data on operacoes(data);

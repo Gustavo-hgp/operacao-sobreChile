@@ -2,16 +2,25 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { money, todayISO, fmtData } from '../lib/format.js'
-import { calcEconomia, calcOperacao, pontoEquilibrio, tipoServicoLabel } from '../lib/calc.js'
+import {
+  calcEconomia,
+  calcOperacao,
+  comissaoValor,
+  pontoEquilibrio,
+  tipoServicoLabel,
+  tiposDoParceiro,
+} from '../lib/calc.js'
 import PickList from '../components/PickList.jsx'
 
 const PAGE_SIZE = 10
 const emptyForm = {
   passeio_id: '',
   parceiro_id: '',
+  tipo_servico: '',
   data: todayISO(),
   qtd_pessoas: '',
-  comissao_roupa: '',
+  valor_roupa: '',
+  comissao_pct: '',
 }
 
 export default function Lancamentos() {
@@ -37,7 +46,10 @@ export default function Lancamentos() {
     ;(async () => {
       const [p, pa] = await Promise.all([
         supabase.from('passeios').select('id, nome, valor_cupo_pessoa').order('nome'),
-        supabase.from('parceiros').select('id, nome, tipo_servico, qtd_maxima, valor_servico').order('nome'),
+        supabase
+          .from('parceiros')
+          .select('id, nome, qtd_maxima, valor_van, valor_guia, valor_van_guia')
+          .order('nome'),
       ])
       if (p.error) setError(p.error.message)
       else setPasseios(p.data)
@@ -55,7 +67,7 @@ export default function Lancamentos() {
       let q = supabase
         .from('operacoes')
         .select(
-          'id, data, qtd_pessoas, comissao_roupa, passeio_id, parceiro_id, passeios(nome, valor_cupo_pessoa), parceiros(nome, valor_servico)',
+          'id, data, tipo_servico, valor_servico, qtd_pessoas, valor_roupa, comissao_pct, passeio_id, parceiro_id, passeios(nome, valor_cupo_pessoa), parceiros(nome)',
           { count: 'exact' },
         )
         .order('data', { ascending: false })
@@ -83,23 +95,32 @@ export default function Lancamentos() {
 
   const passeioSel = passeios.find((p) => String(p.id) === String(form.passeio_id))
   const parceiroSel = parceiros.find((p) => String(p.id) === String(form.parceiro_id))
+  const tipos = parceiroSel ? tiposDoParceiro(parceiroSel) : []
+  const tipoSel = tipos.find((t) => t.tipo === form.tipo_servico) || null
+  const valorServico = tipoSel?.valor ?? 0
   const qtd = parseInt(form.qtd_pessoas, 10) || 0
+
+  // Se o parceiro presta só um tipo, já seleciona ele.
+  useEffect(() => {
+    if (tipos.length === 1 && form.tipo_servico !== tipos[0].tipo) {
+      setForm((f) => ({ ...f, tipo_servico: tipos[0].tipo }))
+    }
+  }, [form.parceiro_id])
 
   const calc = useMemo(
     () =>
       calcEconomia({
         valorCupoReferencia: passeioSel?.valor_cupo_pessoa,
-        valorServicoParceiro: parceiroSel?.valor_servico,
+        valorServicoParceiro: valorServico,
         qtdPessoas: qtd,
       }),
-    [passeioSel, parceiroSel, qtd],
+    [passeioSel, valorServico, qtd],
   )
-  const pe = parceiroSel && passeioSel
-    ? pontoEquilibrio(parceiroSel.valor_servico, passeioSel.valor_cupo_pessoa)
+  const pe = parceiroSel && passeioSel && tipoSel
+    ? pontoEquilibrio(valorServico, passeioSel.valor_cupo_pessoa)
     : null
-  const excedeMax =
-    parceiroSel && parceiroSel.qtd_maxima > 0 && qtd > parceiroSel.qtd_maxima
-  const comissao = Number(form.comissao_roupa) || 0
+  const excedeMax = parceiroSel && parceiroSel.qtd_maxima > 0 && qtd > parceiroSel.qtd_maxima
+  const comissao = ((Number(form.valor_roupa) || 0) * (Number(form.comissao_pct) || 0)) / 100
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   async function save(e) {
@@ -108,15 +129,19 @@ export default function Lancamentos() {
     setMsg('')
     if (!form.passeio_id) return setError('Escolha o passeio.')
     if (!form.parceiro_id) return setError('Escolha o parceiro.')
+    if (!form.tipo_servico) return setError('Escolha o tipo de serviço.')
     if (!form.data) return setError('Escolha a data.')
 
     setSaving(true)
     const row = {
       passeio_id: Number(form.passeio_id),
       parceiro_id: Number(form.parceiro_id),
+      tipo_servico: form.tipo_servico,
+      valor_servico: valorServico,
       data: form.data,
       qtd_pessoas: Math.max(0, qtd),
-      comissao_roupa: comissao,
+      valor_roupa: Number(form.valor_roupa) || 0,
+      comissao_pct: Number(form.comissao_pct) || 0,
     }
     const { error } = editId
       ? await supabase.from('operacoes').update(row).eq('id', editId)
@@ -137,9 +162,11 @@ export default function Lancamentos() {
     setForm({
       passeio_id: String(o.passeio_id),
       parceiro_id: String(o.parceiro_id),
+      tipo_servico: o.tipo_servico,
       data: o.data,
       qtd_pessoas: String(o.qtd_pessoas),
-      comissao_roupa: String(o.comissao_roupa),
+      valor_roupa: o.valor_roupa ? String(o.valor_roupa) : '',
+      comissao_pct: o.comissao_pct ? String(o.comissao_pct) : '',
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -189,11 +216,26 @@ export default function Lancamentos() {
           <PickList
             items={parceiros}
             value={form.parceiro_id}
-            onChange={(id) => setForm((f) => ({ ...f, parceiro_id: id }))}
-            getSecondary={(p) => `${tipoServicoLabel(p.tipo_servico)} · ${money(p.valor_servico)}`}
+            onChange={(id) => setForm((f) => ({ ...f, parceiro_id: id, tipo_servico: '' }))}
             emptyText="Nenhum parceiro cadastrado."
           />
         </div>
+
+        <Field label="Tipo de serviço" className="sm:col-span-2">
+          <select
+            className="input disabled:bg-slate-50 disabled:text-slate-400"
+            value={form.tipo_servico}
+            onChange={(e) => setForm({ ...form, tipo_servico: e.target.value })}
+            disabled={!parceiroSel}
+          >
+            <option value="">{parceiroSel ? 'Escolha…' : 'Escolha o parceiro antes'}</option>
+            {tipos.map((t) => (
+              <option key={t.tipo} value={t.tipo}>
+                {tipoServicoLabel(t.tipo)} — {money(t.valor)}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="Data" className="sm:col-span-2">
           <input
             type="date"
@@ -212,20 +254,32 @@ export default function Lancamentos() {
             placeholder="0"
           />
         </Field>
-        <Field label="Comissão de roupa (opcional)" className="sm:col-span-2">
+
+        <Field label="Total alugado em roupa (opcional)" className="sm:col-span-3">
           <input
             type="number"
             step="0.01"
             min="0"
             className="input"
-            value={form.comissao_roupa}
-            onChange={(e) => setForm({ ...form, comissao_roupa: e.target.value })}
+            value={form.valor_roupa}
+            onChange={(e) => setForm({ ...form, valor_roupa: e.target.value })}
             placeholder="0,00"
           />
         </Field>
+        <Field label="Comissão de roupa (%)" className="sm:col-span-3">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            className="input"
+            value={form.comissao_pct}
+            onChange={(e) => setForm({ ...form, comissao_pct: e.target.value })}
+            placeholder="0"
+          />
+        </Field>
 
-        {passeioSel && parceiroSel && (
-          <div className="sm:col-span-6 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-lg bg-slate-50 p-3 text-sm">
+        {passeioSel && parceiroSel && tipoSel && (
+          <div className="sm:col-span-6 grid grid-cols-2 sm:grid-cols-5 gap-2 rounded-lg bg-slate-50 p-3 text-sm">
             <Preview label="Cupo do parceiro /pessoa" value={money(calc.cupoParceiroPorPessoa)} />
             <Preview
               label="Economizado /pessoa"
@@ -238,6 +292,7 @@ export default function Lancamentos() {
               tone={calc.economiaTotal >= 0 ? 'text-green-600' : 'text-accent'}
               strong
             />
+            <Preview label="Comissão de roupa" value={money(comissao)} />
             <Preview label="Ponto de equilíbrio" value={pe == null ? '—' : `${pe} pessoas`} />
           </div>
         )}
@@ -295,14 +350,14 @@ export default function Lancamentos() {
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
-          <table className="w-full text-sm min-w-[720px]">
+          <table className="w-full text-sm min-w-[760px]">
             <thead className="bg-slate-50 text-slate-500 text-left">
               <tr>
                 <th className="px-4 py-2">Data</th>
                 <th className="px-4 py-2">Passeio</th>
                 <th className="px-4 py-2">Parceiro</th>
+                <th className="px-4 py-2">Tipo</th>
                 <th className="px-4 py-2 text-right">Pessoas</th>
-                <th className="px-4 py-2 text-right">Cupo parc. /pax</th>
                 <th className="px-4 py-2 text-right">Economia</th>
                 <th className="px-4 py-2"></th>
               </tr>
@@ -328,8 +383,8 @@ export default function Lancamentos() {
                       <td className="px-4 py-2 whitespace-nowrap">{fmtData(o.data)}</td>
                       <td className="px-4 py-2 font-medium">{o.passeios?.nome || '—'}</td>
                       <td className="px-4 py-2">{o.parceiros?.nome || '—'}</td>
+                      <td className="px-4 py-2 text-slate-600">{tipoServicoLabel(o.tipo_servico)}</td>
                       <td className="px-4 py-2 text-right">{o.qtd_pessoas}</td>
-                      <td className="px-4 py-2 text-right">{money(c.cupoParceiroPorPessoa)}</td>
                       <td className={`px-4 py-2 text-right font-medium ${c.economiaTotal >= 0 ? 'text-green-600' : 'text-accent'}`}>
                         {money(c.economiaTotal)}
                       </td>
