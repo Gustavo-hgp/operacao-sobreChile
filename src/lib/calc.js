@@ -17,11 +17,13 @@ export function calcEconomia({ valorCupoReferencia, valorServicoParceiro, qtdPes
   return { ref, servico, pessoas, cupoParceiroPorPessoa, economizadoPorPessoa, economiaTotal }
 }
 
-// Atalho a partir de uma operação. O preço do parceiro é gravado na própria
-// operação (valor_servico), pois o parceiro pode ter vários tipos de serviço.
+// Atalho a partir de uma operação. Os valores são gravados na própria operação
+// (snapshot): valor_cupo (referência) e valor_servico (parceiro). Assim, editar
+// ou excluir o passeio/parceiro NÃO altera o histórico já lançado.
+// (mantém fallback ao join `passeios` por compatibilidade com dados antigos.)
 export function calcOperacao(op) {
   return calcEconomia({
-    valorCupoReferencia: op?.passeios?.valor_cupo_pessoa,
+    valorCupoReferencia: op?.valor_cupo ?? op?.passeios?.valor_cupo_pessoa,
     valorServicoParceiro: op?.valor_servico,
     qtdPessoas: op?.qtd_pessoas,
   })

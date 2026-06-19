@@ -27,12 +27,19 @@ create table if not exists parceiros (
 -- 3) Operação: um passeio executado com um parceiro num tipo de serviço.
 --    valor_servico = preço do parceiro para o tipo escolhido (gravado no momento).
 --    Comissão de roupa = valor_roupa * comissao_pct / 100.
+--    SNAPSHOT (histórico imutável): valor_cupo, valor_servico, passeio_nome e
+--    parceiro_nome são gravados no lançamento. Editar/excluir o passeio ou o
+--    parceiro NÃO muda o passado — por isso as FKs são ON DELETE SET NULL
+--    (a operação sobrevive, só perde o vínculo).
 create table if not exists operacoes (
   id            bigint generated always as identity primary key,
   data          date not null,
-  passeio_id    bigint not null references passeios(id) on delete cascade,
-  parceiro_id   bigint not null references parceiros(id) on delete cascade,
+  passeio_id    bigint references passeios(id) on delete set null,
+  parceiro_id   bigint references parceiros(id) on delete set null,
+  passeio_nome  text,
+  parceiro_nome text,
   tipo_servico  text not null check (tipo_servico in ('van','guia','van_guia')),
+  valor_cupo    numeric(10,2) not null default 0,
   valor_servico numeric(10,2) not null default 0,
   qtd_pessoas   integer not null default 0 check (qtd_pessoas >= 0),
   valor_roupa   numeric(10,2) not null default 0,

@@ -53,7 +53,7 @@ export default function Dashboard() {
   const toStr = toISO(to)
 
   const select =
-    'data, qtd_pessoas, valor_servico, valor_roupa, comissao_pct, passeios(valor_cupo_pessoa)'
+    'data, qtd_pessoas, valor_servico, valor_cupo, valor_roupa, comissao_pct'
 
   async function load() {
     if (!supabase || !fromStr || !toStr) return setLoading(false)

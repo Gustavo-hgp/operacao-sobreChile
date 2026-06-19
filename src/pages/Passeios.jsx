@@ -77,7 +77,7 @@ export default function Passeios() {
   }
 
   async function remove(id) {
-    if (!confirm('Excluir este passeio? As operações lançadas com ele também serão removidas.')) return
+    if (!confirm('Excluir este passeio? As operações já lançadas continuam no histórico (mantêm os valores da época).')) return
     const { error } = await supabase.from('passeios').delete().eq('id', id)
     if (error) return setError(error.message)
     refresh()

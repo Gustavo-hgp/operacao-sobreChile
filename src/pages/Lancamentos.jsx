@@ -68,7 +68,7 @@ export default function Lancamentos() {
       let q = supabase
         .from('operacoes')
         .select(
-          'id, data, tipo_servico, valor_servico, qtd_pessoas, valor_roupa, comissao_pct, passeio_id, parceiro_id, passeios(nome, valor_cupo_pessoa), parceiros(nome)',
+          'id, data, tipo_servico, valor_servico, valor_cupo, qtd_pessoas, valor_roupa, comissao_pct, passeio_id, parceiro_id, passeio_nome, parceiro_nome',
           { count: 'exact' },
         )
         .order('data', { ascending: false })
@@ -137,6 +137,11 @@ export default function Lancamentos() {
     const row = {
       passeio_id: Number(form.passeio_id),
       parceiro_id: Number(form.parceiro_id),
+      // Snapshot: guarda nomes e cupo de referência do momento, pra o histórico
+      // não mudar se o passeio/parceiro for editado ou excluído depois.
+      passeio_nome: passeioSel?.nome ?? null,
+      parceiro_nome: parceiroSel?.nome ?? null,
+      valor_cupo: Number(passeioSel?.valor_cupo_pessoa) || 0,
       tipo_servico: form.tipo_servico,
       valor_servico: valorServico,
       data: form.data,
@@ -161,8 +166,9 @@ export default function Lancamentos() {
     setMsg('')
     setEditId(o.id)
     setForm({
-      passeio_id: String(o.passeio_id),
-      parceiro_id: String(o.parceiro_id),
+      // Se o passeio/parceiro foi excluído, o id vem nulo — força reescolher.
+      passeio_id: o.passeio_id ? String(o.passeio_id) : '',
+      parceiro_id: o.parceiro_id ? String(o.parceiro_id) : '',
       tipo_servico: o.tipo_servico,
       data: o.data,
       qtd_pessoas: String(o.qtd_pessoas),
@@ -384,8 +390,8 @@ export default function Lancamentos() {
                   return (
                     <tr key={o.id} className="border-t border-slate-100">
                       <td className="px-4 py-2 whitespace-nowrap">{fmtData(o.data)}</td>
-                      <td className="px-4 py-2 font-medium">{o.passeios?.nome || '—'}</td>
-                      <td className="px-4 py-2">{o.parceiros?.nome || '—'}</td>
+                      <td className="px-4 py-2 font-medium">{o.passeio_nome || o.passeios?.nome || '—'}</td>
+                      <td className="px-4 py-2">{o.parceiro_nome || o.parceiros?.nome || '—'}</td>
                       <td className="px-4 py-2 text-slate-600">{tipoServicoLabel(o.tipo_servico)}</td>
                       <td className="px-4 py-2 text-right">{o.qtd_pessoas}</td>
                       <td className={`px-4 py-2 text-right font-medium ${c.economiaTotal >= 0 ? 'text-green-600' : 'text-accent'}`}>
