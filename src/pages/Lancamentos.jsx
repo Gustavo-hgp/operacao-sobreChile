@@ -96,17 +96,17 @@ export default function Lancamentos() {
 
   const passeioSel = passeios.find((p) => String(p.id) === String(form.passeio_id))
   const parceiroSel = parceiros.find((p) => String(p.id) === String(form.parceiro_id))
-  const tipos = parceiroSel ? tiposDoParceiro(parceiroSel) : []
+  const tipos = tiposDisponiveis(precos, form.parceiro_id, form.passeio_id)
   const tipoSel = tipos.find((t) => t.tipo === form.tipo_servico) || null
   const valorServico = tipoSel?.valor ?? 0
   const qtd = parseInt(form.qtd_pessoas, 10) || 0
 
-  // Se o parceiro presta só um tipo, já seleciona ele.
+  // Se a combinação passeio+parceiro só tem um tipo, já seleciona ele.
   useEffect(() => {
     if (tipos.length === 1 && form.tipo_servico !== tipos[0].tipo) {
       setForm((f) => ({ ...f, tipo_servico: tipos[0].tipo }))
     }
-  }, [form.parceiro_id])
+  }, [form.parceiro_id, form.passeio_id])
 
   const calc = useMemo(
     () =>
@@ -214,7 +214,7 @@ export default function Lancamentos() {
           <PickList
             items={passeios}
             value={form.passeio_id}
-            onChange={(id) => setForm((f) => ({ ...f, passeio_id: id }))}
+            onChange={(id) => setForm((f) => ({ ...f, passeio_id: id, tipo_servico: '' }))}
             emptyText="Nenhum passeio cadastrado."
             minChars={3}
           />
@@ -235,15 +235,26 @@ export default function Lancamentos() {
             className="input disabled:bg-slate-50 disabled:text-slate-400"
             value={form.tipo_servico}
             onChange={(e) => setForm({ ...form, tipo_servico: e.target.value })}
-            disabled={!parceiroSel}
+            disabled={!passeioSel || !parceiroSel}
           >
-            <option value="">{parceiroSel ? 'Escolha…' : 'Escolha o parceiro antes'}</option>
+            <option value="">
+              {!passeioSel || !parceiroSel
+                ? 'Escolha passeio e parceiro'
+                : tipos.length
+                  ? 'Escolha…'
+                  : 'Sem preço cadastrado'}
+            </option>
             {tipos.map((t) => (
               <option key={t.tipo} value={t.tipo}>
                 {tipoServicoLabel(t.tipo)} — {formatMoney(t.valor)}
               </option>
             ))}
           </select>
+          {passeioSel && parceiroSel && tipos.length === 0 && (
+            <span className="mt-1 block text-xs text-accent">
+              Esse parceiro não tem preço pra esse passeio. Cadastre em Parceiros.
+            </span>
+          )}
         </Field>
         <Field label="Data" className="sm:col-span-2">
           <input
