@@ -46,12 +46,15 @@ export function pontoEquilibrio(valorServicoParceiro, valorCupoReferencia) {
 export const tipoServicoLabel = (t) =>
   ({ van: 'Van', guia: 'Guia', van_guia: 'Van + Guia' }[t] || t || '—')
 
-// Tipos de serviço que um parceiro oferece (os que têm preço preenchido),
-// com o valor de cada um. Ex.: [{ tipo: 'van', valor: 150 }, ...].
-export function tiposDoParceiro(p) {
-  const out = []
-  if (p?.valor_van != null) out.push({ tipo: 'van', valor: Number(p.valor_van) })
-  if (p?.valor_guia != null) out.push({ tipo: 'guia', valor: Number(p.valor_guia) })
-  if (p?.valor_van_guia != null) out.push({ tipo: 'van_guia', valor: Number(p.valor_van_guia) })
-  return out
+// Tipos (e valores) que um parceiro oferece PARA um passeio específico, a partir
+// das linhas de preço (parceiro × passeio × tipo). Ex.: [{ tipo:'van', valor:150 }].
+export function tiposDisponiveis(precos, parceiroId, passeioId) {
+  if (!parceiroId || !passeioId) return []
+  return (precos || [])
+    .filter(
+      (pr) =>
+        String(pr.parceiro_id) === String(parceiroId) &&
+        String(pr.passeio_id) === String(passeioId),
+    )
+    .map((pr) => ({ tipo: pr.tipo_servico, valor: Number(pr.valor) }))
 }

@@ -8,7 +8,7 @@ import {
   calcOperacao,
   pontoEquilibrio,
   tipoServicoLabel,
-  tiposDoParceiro,
+  tiposDisponiveis,
 } from '../lib/calc.js'
 import PickList from '../components/PickList.jsx'
 
@@ -27,6 +27,7 @@ export default function Lancamentos() {
   const { formatMoney } = useCurrency()
   const [passeios, setPasseios] = useState([])
   const [parceiros, setParceiros] = useState([])
+  const [precos, setPrecos] = useState([])
   const [operacoes, setOperacoes] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(0)
@@ -45,16 +46,15 @@ export default function Lancamentos() {
   useEffect(() => {
     if (!supabase) return setBaseLoading(false)
     ;(async () => {
-      const [p, pa] = await Promise.all([
+      const [p, pa, pr] = await Promise.all([
         supabase.from('passeios').select('id, nome, valor_cupo_pessoa').order('nome'),
-        supabase
-          .from('parceiros')
-          .select('id, nome, qtd_maxima, valor_van, valor_guia, valor_van_guia')
-          .order('nome'),
+        supabase.from('parceiros').select('id, nome, qtd_maxima').order('nome'),
+        supabase.from('parceiro_precos').select('parceiro_id, passeio_id, tipo_servico, valor'),
       ])
       if (p.error) setError(p.error.message)
       else setPasseios(p.data)
       if (!pa.error) setParceiros(pa.data)
+      if (!pr.error) setPrecos(pr.data)
       setBaseLoading(false)
     })()
   }, [])

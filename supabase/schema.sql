@@ -12,17 +12,30 @@ create table if not exists passeios (
   created_at        timestamptz not null default now()
 );
 
--- 2) Parceiro: pode prestar van, guia e/ou van+guia, cada um com seu preço
---    (deixe nulo o que ele não faz). qtd_maxima = capacidade máxima de pessoas.
+-- 2) Parceiro: quem presta o serviço. qtd_maxima = capacidade máxima de pessoas.
+--    Os PREÇOS ficam na tabela parceiro_precos (por passeio e por tipo).
 create table if not exists parceiros (
-  id             bigint generated always as identity primary key,
-  nome           text not null,
-  qtd_maxima     integer not null default 0 check (qtd_maxima >= 0),
-  valor_van      numeric(10,2),
-  valor_guia     numeric(10,2),
-  valor_van_guia numeric(10,2),
-  created_at     timestamptz not null default now()
+  id         bigint generated always as identity primary key,
+  nome       text not null,
+  qtd_maxima integer not null default 0 check (qtd_maxima >= 0),
+  created_at timestamptz not null default now()
 );
+
+-- 2b) Preço do parceiro POR passeio e POR tipo de serviço (a "triangulação"):
+--     parceiro × passeio × tipo → valor. Cada linha = quanto o parceiro cobra
+--     por aquele passeio naquele tipo de serviço.
+create table if not exists parceiro_precos (
+  id           bigint generated always as identity primary key,
+  parceiro_id  bigint not null references parceiros(id) on delete cascade,
+  passeio_id   bigint not null references passeios(id) on delete cascade,
+  tipo_servico text not null check (tipo_servico in ('van','guia','van_guia')),
+  valor        numeric(10,2) not null default 0,
+  created_at   timestamptz not null default now(),
+  unique (parceiro_id, passeio_id, tipo_servico)
+);
+
+create index if not exists idx_parceiro_precos_parceiro on parceiro_precos(parceiro_id);
+create index if not exists idx_parceiro_precos_passeio on parceiro_precos(passeio_id);
 
 -- 3) Operação: um passeio executado com um parceiro num tipo de serviço.
 --    valor_servico = preço do parceiro para o tipo escolhido (gravado no momento).
@@ -56,9 +69,10 @@ create index if not exists idx_operacoes_parceiro on operacoes(parceiro_id);
 -- Crie o usuário no painel: Authentication > Users > Add user (marque
 -- "Auto Confirm User") e DESATIVE o cadastro público em Authentication >
 -- Sign In / Providers > "Allow new users to sign up".
-alter table passeios  enable row level security;
-alter table parceiros enable row level security;
-alter table operacoes enable row level security;
+alter table passeios       enable row level security;
+alter table parceiros      enable row level security;
+alter table parceiro_precos enable row level security;
+alter table operacoes      enable row level security;
 
 drop policy if exists "authenticated full access passeios" on passeios;
 create policy "authenticated full access passeios" on passeios
@@ -66,6 +80,10 @@ create policy "authenticated full access passeios" on passeios
 
 drop policy if exists "authenticated full access parceiros" on parceiros;
 create policy "authenticated full access parceiros" on parceiros
+  for all to authenticated using (true) with check (true);
+
+drop policy if exists "authenticated full access parceiro_precos" on parceiro_precos;
+create policy "authenticated full access parceiro_precos" on parceiro_precos
   for all to authenticated using (true) with check (true);
 
 drop policy if exists "authenticated full access operacoes" on operacoes;
