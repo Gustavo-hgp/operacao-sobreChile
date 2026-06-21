@@ -233,7 +233,7 @@ function CambioModal({ onClose }) {
       BRL: Number(brl) || rates.BRL,
     })
     setSaving(false)
-    setMsg(error ? 'Erro ao salvar.' : 'Taxas salvas!')
+    setMsg(error ? `Erro: ${error.message}` : 'Taxas salvas!')
   }
 
   return createPortal(
@@ -281,7 +281,11 @@ function CambioModal({ onClose }) {
             />
           </label>
           <div className="flex items-center justify-end gap-3 pt-1">
-            {msg && <span className="mr-auto text-sm text-green-600">{msg}</span>}
+            {msg && (
+              <span className={`mr-auto text-sm ${msg.startsWith('Erro') ? 'text-accent' : 'text-green-600'}`}>
+                {msg}
+              </span>
+            )}
             <button type="button" className="btn-ghost" onClick={onClose}>
               Fechar
             </button>
